@@ -33,7 +33,14 @@ def print_res(stim):
 
 def validation(opt, model, get_result = False):
     opt.validation = True
-    dataloader = torch.utils.data.DataLoader(dataset = dataset, batch_size = opt.batch_size, shuffle = False, pin_memory = True)
+    pin_memory = (opt.device != 'cpu')
+    dataloader = torch.utils.data.DataLoader(
+        dataset=dataset, 
+        batch_size=opt.batch_size, 
+        shuffle=False, 
+        pin_memory=pin_memory,
+        num_workers=opt.num_workers
+    )
     pred = np.empty((0, opt.input_dim))
     model.to(opt.device, non_blocking=True)
     for idx, (con, sty) in enumerate(dataloader):
@@ -67,12 +74,28 @@ def train_model(opt, dataset):
 
     model = scperb(opt)
     
+    # Move model to device BEFORE loading checkpoint (if resuming)
+    model.to(opt.device)
+    
     if opt.resume == True:
         model.load(opt.model_save_path + '/'  + opt.exclude_celltype + '_now_epoch.pt')
     
-    model.to(opt.device, non_blocking=True)
+    # Ensure model is on correct device
+    model.to(opt.device)
     
-    dataloader = torch.utils.data.DataLoader(dataset = dataset, batch_size = opt.batch_size, shuffle = True, pin_memory = True)
+    # Verify device placement
+    if opt.device != 'cpu':
+        print(f"Model device check: {next(model.model.parameters()).device}")
+    
+    # Use pin_memory=True only if using CUDA for faster data transfer
+    pin_memory = (opt.device != 'cpu')
+    dataloader = torch.utils.data.DataLoader(
+        dataset=dataset, 
+        batch_size=opt.batch_size, 
+        shuffle=True, 
+        pin_memory=pin_memory,
+        num_workers=opt.num_workers
+    )
 
     scores = -1
     best_model = 0
@@ -107,10 +130,20 @@ def fix_seed(opt):
 def get_res(opt, model_type = "best"):
     model = scperb(opt)
     
+    # Move model to device BEFORE loading
+    model.to(opt.device)
+    
     if model_type == "best":
         model.load(opt.model_save_path + '/'  + opt.exclude_celltype + '_best_epoch.pt')
     else:
         model.load(opt.model_save_path + '/'  + opt.exclude_celltype + '_now_epoch.pt')
+    
+    # Ensure model is on correct device after loading
+    model.to(opt.device)
+    
+    # Verify device placement
+    if opt.device != 'cpu':
+        print(f"Model device check: {next(model.model.parameters()).device}")
     
     predicts = validation(opt, model, True)
     valid = sc.read(opt.read_valid_path)
@@ -124,6 +157,17 @@ if __name__ == '__main__':
     Opt = options()
     opt = Opt.init()
     print(opt)
+    
+    # Verify device is set correctly
+    print(f"\n{'='*60}")
+    print(f"Device Configuration:")
+    print(f"  opt.device = '{opt.device}'")
+    if opt.device != 'cpu':
+        print(f"  torch.cuda.is_available() = {torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            print(f"  CUDA device: {torch.cuda.get_device_name(0)}")
+    print(f"{'='*60}\n")
+    
     fix_seed(opt)
     dataset = customDataloader(opt)
     

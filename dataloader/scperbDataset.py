@@ -82,6 +82,8 @@ class customDataloader(data.Dataset):
     def numpy2tensor(self, data):
         if isinstance(data, np.ndarray): 
             data = torch.from_numpy(data)
+            # Note: Don't move to device here - DataLoader handles it
+            # Tensors will be moved in model.set_input()
         else:
             Exception("This is not a numpy")
         return data
