@@ -16,22 +16,14 @@ class scperb(nn.Module):
         self.criterion = nn.MSELoss(reduction = 'mean')
         self.l1_loss = nn.L1Loss()
         self.Sl1_loss = nn.SmoothL1Loss()
-        # Create model and move to device
-        self.model = scPerb_vae(opt)
-        self.model = self.model.to(opt.device)
+        self.model = scPerb_vae(opt).to(opt.device)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), opt.lr)
         self.loss_stat = {}
-        
-        # Debug: verify model is on correct device
-        if opt.device != 'cpu':
-            first_param_device = next(self.model.parameters()).device
-            print(f"  Model initialized on device: {first_param_device}")
 
     def set_input(self, con, sti, sty):
-        # Explicitly move tensors to device and ensure they're on the right device
-        self.con = con.to(self.opt.device, non_blocking=True)
-        self.sti = sti.to(self.opt.device, non_blocking=True)
-        self.sty = sty.to(self.opt.device, non_blocking=True)
+        self.con = con.to(self.opt.device)
+        self.sti = sti.to(self.opt.device)
+        self.sty = sty.to(self.opt.device)
         
     def forward(self):
         self.model.train()
@@ -169,8 +161,7 @@ class scperb(nn.Module):
         return self.tensor2numpy(gen_img)
 
     def load(self, path):
-        # Load checkpoint to the correct device
-        self.model.load_state_dict(torch.load(path, map_location=self.opt.device))
+        self.model.load_state_dict(torch.load(path))
     
     def save(self, path):
         torch.save(self.model.state_dict(), path)

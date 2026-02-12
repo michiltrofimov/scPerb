@@ -31,16 +31,11 @@ def print_res(stim):
     print("var:", var)
     print("median", mid)
 
-def validation(opt, model, get_result = False):
+def validation(opt, model, dataset, get_result = False):
     opt.validation = True
     pin_memory = (opt.device != 'cpu')
-    dataloader = torch.utils.data.DataLoader(
-        dataset=dataset, 
-        batch_size=opt.batch_size, 
-        shuffle=False, 
-        pin_memory=pin_memory,
-        num_workers=opt.num_workers
-    )
+    dataloader = torch.utils.data.DataLoader(dataset=dataset, batch_size=opt.batch_size, shuffle=False, pin_memory=pin_memory)
+
     pred = np.empty((0, opt.input_dim))
     model.to(opt.device, non_blocking=True)
     for idx, (con, sty) in enumerate(dataloader):
@@ -115,7 +110,7 @@ def train_model(opt, dataset):
 
         model.save(opt.model_save_path + '/'  + opt.exclude_celltype + '_now_epoch.pt')
         if epoch % 10 == 0:
-            tmp_scores, mean, var = validation(opt, model)
+            tmp_scores, mean, var = validation(opt, model, dataset)
         best_model, scores = utils.bestmodel(scores, tmp_scores, epoch, best_model, model)
         
         utils.update_pbar(loss, scores, best_model, pbar, mean, var, tmp_scores)
@@ -127,7 +122,7 @@ def fix_seed(opt):
     torch.backends.cudnn.benchmark = False
     np.random.seed(opt.seed)
 
-def get_res(opt, model_type = "best"):
+def get_res(opt, dataset, model_type = "best"):
     model = scperb(opt)
     
     # Move model to device BEFORE loading
@@ -145,7 +140,7 @@ def get_res(opt, model_type = "best"):
     if opt.device != 'cpu':
         print(f"Model device check: {next(model.model.parameters()).device}")
     
-    predicts = validation(opt, model, True)
+    predicts = validation(opt, model, dataset, True)
     valid = sc.read(opt.read_valid_path)
     pred = anndata.AnnData(predicts, obs={opt.condition_key: [opt.pred_key] * len(predicts), opt.cell_type_key: [opt.exclude_celltype] * len(predicts)}, var={"var_names": valid.var_names})
     if model_type == 'best':
@@ -176,8 +171,8 @@ if __name__ == '__main__':
         subprocess.call([command], shell=True)
     
     if opt.validation == True:
-        get_res(opt)
+        get_res(opt, dataset)
     
     else:
         train_model(opt, dataset)
-        get_res(opt)
+        get_res(opt, dataset)

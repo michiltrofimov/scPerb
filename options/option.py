@@ -42,6 +42,13 @@ class options():
             opt.cell_type_key = 'cell_type'
             opt.input_dim = 7000
 
+        elif self.opt.data == 'obesity':
+            opt.stim_key = 'stimulated'
+            opt.ctrl_key = 'control'
+            opt.cell_type_key = 'cell_type'
+            if not hasattr(opt, 'input_dim') or opt.input_dim is None:
+                opt.input_dim = 10000  # override in notebook from adata.n_vars
+
         self.opt = opt
             
     def make_dic(self):
